@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
+import enums.Boon;
 import enums.MenuChoice;
 import statistics.Parse;
 import statistics.Statistics;
@@ -97,7 +98,7 @@ public class Main {
 						System.out.println("_______________" + System.lineSeparator());
 						System.out.println("EVTC Log Parser");
 						System.out.println("_______________" + System.lineSeparator());
-						System.out.println("0. Dump EVTC");
+						System.out.println("0. Quit");
 						System.out.println("1. Final DPS");
 						System.out.println("2. Phase DPS");
 						System.out.println("3. Damage Distribution");
@@ -105,23 +106,28 @@ public class Main {
 						System.out.println("5. Misc. Combat Stats");
 						System.out.println("6. Final Boons");
 						System.out.println("7. Phase Boons");
-						System.out.println("8. Dump Tables");
-						System.out.println("9. Quit");
+						System.out.println("8. Compare Single Boon");
+						System.out.println("9. Dump Tables");
+						System.out.println("10. Dump EVTC");
 						System.out.println("_______________" + System.lineSeparator());
 						System.out.println("Enter an option by number below:");
 
 						// Read user input
 						MenuChoice choice = null;
+						int choice_int = -1;
+						boolean err = false;
 						try {
-							choice = MenuChoice.getEnum(scan.nextInt());
-
+							choice_int = scan.nextInt();
 						} catch (InputMismatchException e) {
-							e.printStackTrace();
+							err = true;
+							//e.printStackTrace();
 						}
 						scan.nextLine();
 
+						choice = MenuChoice.getEnum(choice_int);
+
 						// Invalid choice
-						if (choice == null) {
+						if (choice == null || err == true) {
 							System.out.println("Invalid option. Try again." + System.lineSeparator());
 						}
 
@@ -132,12 +138,66 @@ public class Main {
 
 						// Valid choice
 						else {
-							// Apply option to all .evtc files in /logs/
-							for (Path log : log_files) {
-								System.out.println(
-										System.lineSeparator() + "Input file:\t" + log.getFileName().toString());
-								String output = parseFileByChoice(choice, log);
-								System.out.println(output);
+
+							// Require submenu for COMPARE_BOON
+							if (choice.equals(MenuChoice.COMPARE_BOON)) {
+								boolean will_return = false;
+								while(!will_return) {
+									System.out.println("_______________" + System.lineSeparator());
+									System.out.println("EVTC Log Parser - Compare Boon");
+									System.out.println("_______________" + System.lineSeparator());
+									System.out.println("0. Return");
+
+									for (Boon boon : Boon.values()) {
+										System.out.println(boon.getID() + ". " + boon.getName());
+									}
+
+									System.out.println("_______________" + System.lineSeparator());
+									System.out.println("Enter an option by number below:");
+
+									Boon boon = null;
+									int boon_int = -1;
+									err = false;
+
+									try {
+										boon_int = scan.nextInt();
+									} catch (InputMismatchException e) {
+										err = true;
+										//e.printStackTrace();
+									}
+									scan.nextLine();
+
+									boon = Boon.getEnum(boon_int);
+
+									// Returning
+									if (MenuChoice.getEnum(boon_int) != null && MenuChoice.getEnum(boon_int).equals(MenuChoice.QUIT)) {
+										will_return = true;
+									}
+
+									// Invalid choice
+									else if (boon == null || err) {
+										System.out.println("Invalid option. Try again." + System.lineSeparator());
+									}
+
+									else {
+										// Apply option to all .evtc files in /logs/
+										for (Path log : log_files) {
+											System.out.println(
+													System.lineSeparator() + "Input file:\t" + log.getFileName().toString());
+											String output = parseFileByChoice(choice, log, boon);
+											System.out.println(output);
+										}
+									}
+
+								}
+							} else {
+								// Apply option to all .evtc files in /logs/
+								for (Path log : log_files) {
+									System.out.println(
+											System.lineSeparator() + "Input file:\t" + log.getFileName().toString());
+									String output = parseFileByChoice(choice, log);
+									System.out.println(output);
+								}
 							}
 						}
 					}
@@ -155,6 +215,10 @@ public class Main {
 	}
 
 	private static String parseFileByChoice(MenuChoice choice, Path path) {
+		return parseFileByChoice(choice, path, null);
+	}
+
+	private static String parseFileByChoice(MenuChoice choice, Path path, Boon boon) {
 
 		// Parse the log
 		if (current_file == null || !current_file.equals(path.getFileName().toString().split("\\.")[0])) {
@@ -188,6 +252,8 @@ public class Main {
 			return statistics.getFinalBoons();
 		} else if (choice.equals(MenuChoice.PHASE_BOONS)) {
 			return statistics.getPhaseBoons();
+		} else if (choice.equals(MenuChoice.COMPARE_BOON)) {
+			return statistics.getCompareBoon(boon);
 		} else if (choice.equals(MenuChoice.DUMP_EVTC)) {
 			File evtc_dump = new File(
 					"./tables/" + current_file + "_" + parsed_file.getBossData().getName() + "_evtc-dump.txt");
