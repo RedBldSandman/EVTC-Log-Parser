@@ -458,6 +458,90 @@ public class Statistics {
 		return output.toString();
 	}
 
+	public String getCompareBoon(Boon boon){
+
+		List<String> boon_list = Boon.getList();
+		BoonFactory boonFactory = new BoonFactory();
+		List<String[]> all_rates = new ArrayList<String[]>();
+		List<Point> fight_intervals = getFightIntervals();
+
+		for (int i = 0; i < playerList.size(); i++) {
+
+			Player p = playerList.get(i);
+			Map<String, List<BoonLog>> boon_logs = p.getBoonMap(bossData, skillData, combatData.getCombatList());
+
+
+			String[] rate = new String[fight_intervals.size() + 1];
+			Arrays.fill(rate, "0.00");
+
+			List<BoonLog> logs = boon_logs.get(boon.getName());
+
+			if (!logs.isEmpty()) {
+				AbstractBoon boon_object = boonFactory.makeBoon(boon);
+				if (boon.getType().equals("duration")) {
+					List<Point> boon_intervals = getBoonIntervalsList(boon_object, logs);
+					rate = Utility.concatStringArray(getBoonDuration(boon_intervals, fight_intervals), new String[] { getBoonDuration(boon_intervals) });
+				} else if (boon.getType().equals("intensity")) {
+					List<Integer> boon_stacks = getBoonStacksList(boon_object, logs);
+					rate = Utility.concatStringArray(getAverageStacks(boon_stacks, fight_intervals), new String[] { getAverageStacks(boon_stacks) });
+				}
+			}
+			all_rates.add(rate);
+		}
+
+		// Table
+		TableBuilder table = new TableBuilder();
+		table.addTitle("Phase " + boon.getName() + " - " + bossData.getName());
+
+		// Header
+		String[] header = new String[fight_intervals.size() + 4];
+		header[0] = "Name";
+		header[1] = "Profession";
+		header[2] = "Subgroup";
+		for (int i = 3; i < fight_intervals.size() + 3; i++) {
+			header[i] = "Phase " + String.valueOf(i - 2);
+		}
+		header[header.length - 1] = "Average";
+		table.addRow(header);
+
+		// Body
+		for (int i = 0; i < playerList.size(); i++) {
+			Player p = playerList.get(i);
+			table.addRow(
+					Utility.concatStringArray(new String[] { p.getCharacter(), p.getProf() , p.getGroup()}, all_rates.get(i)));
+		}
+
+		// Footer
+		String[] durations = new String[fight_intervals.size() + 4];
+		double total_time = 0.0;
+		durations[0] = "-";
+		durations[1] = "-";
+		durations[2] = "-";
+		for (int i = 3; i < fight_intervals.size() + 3; i++) {
+			Point p = fight_intervals.get(i - 3);
+			double time = (p.getY() - p.getX()) / 1000.0;
+			total_time += time;
+			durations[i] = String.format("%.2f", time);
+		}
+		durations[durations.length - 1] = String.format("%.2f", total_time);
+		table.addRow(durations);
+
+		String[] intervals = new String[fight_intervals.size() + 4];
+		intervals[0] = "-";
+		intervals[1] = "-";
+		intervals[2] = "-";
+		for (int i = 3; i < fight_intervals.size() + 3; i++) {
+			Point p = fight_intervals.get(i - 3);
+			intervals[i] = "(" + String.format("%.2f", p.getX() / 1000.0) + ", "
+					+ String.format("%.2f", p.getY() / 1000.0) + ")";
+		}
+		intervals[intervals.length - 1] = "-";
+		table.addRow(intervals);
+
+		return table.toString();
+
+	}
+
 	// Private Methods
 	private List<Point> getFightIntervals() {
 
