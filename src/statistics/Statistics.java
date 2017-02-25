@@ -5,6 +5,8 @@ import java.awt.Point;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,7 @@ import enums.StateChange;
 import player.BoonLog;
 import player.DamageLog;
 import player.Player;
+import utility.CompareBoonHolder;
 import utility.FinalDpsHolder;
 import utility.PhaseDpsHolder;
 import utility.TableBuilder;
@@ -379,9 +382,9 @@ public class Statistics {
 				String rate = "0.00";
 				if (!logs.isEmpty()) {
 					if (boon.getType().equals("duration")) {
-						rate = getBoonDuration(getBoonIntervalsList(boon_object, logs));
+						rate = String.format("%.2f", getBoonDuration(getBoonIntervalsList(boon_object, logs)));
 					} else if (boon.getType().equals("intensity")) {
-						rate = getAverageStacks(getBoonStacksList(boon_object, logs));
+						rate = String.format("%.2f", getAverageStacks(getBoonStacksList(boon_object, logs)));
 					}
 				}
 				rates[j] = rate;
@@ -476,6 +479,107 @@ public class Statistics {
 		}
 
 		return output.toString();
+	}
+
+	public String getCompareBoon(Boon boon){
+
+		List<String> boon_list = Boon.getList();
+		BoonFactory boonFactory = new BoonFactory();
+		List<CompareBoonHolder> holder = new ArrayList<CompareBoonHolder>();
+		List<Point> fight_intervals = getFightIntervals();
+
+
+		for (int i = 0; i < playerList.size(); i++) {
+
+			Player p = playerList.get(i);
+			Map<String, List<BoonLog>> boon_logs = p.getBoonMap(bossData, skillData, combatData.getCombatList());
+
+
+			String[] rate = new String[fight_intervals.size() + 1];
+			double avg = 0;
+			Arrays.fill(rate, "0.00");
+
+			List<BoonLog> logs = boon_logs.get(boon.getName());
+
+			if (!logs.isEmpty()) {
+				AbstractBoon boon_object = boonFactory.makeBoon(boon);
+				if (boon.getType().equals("duration")) {
+					List<Point> boon_intervals = getBoonIntervalsList(boon_object, logs);
+					avg = getBoonDuration(boon_intervals);
+					rate = Utility.concatStringArray(getBoonDuration(boon_intervals, fight_intervals), new String[] { String.format("%.2f", avg) });
+				} else if (boon.getType().equals("intensity")) {
+					List<Integer> boon_stacks = getBoonStacksList(boon_object, logs);
+					avg = getAverageStacks(boon_stacks);
+					rate = Utility.concatStringArray(getAverageStacks(boon_stacks, fight_intervals), new String[] { String.format("%.2f", avg) });
+				}
+			}
+			holder.add(new CompareBoonHolder(p, rate, avg));
+		}
+
+		Collections.sort(holder, new Comparator<CompareBoonHolder>() {
+			@Override
+			public int compare(CompareBoonHolder a, CompareBoonHolder b) {
+				int groupComp = Integer.parseInt(a.getPlayer().getGroup()!="N/A"?a.getPlayer().getGroup():"0") - Integer.parseInt(b.getPlayer().getGroup()!="N/A"?b.getPlayer().getGroup():"0");
+				if (groupComp == 0) {
+					return (int) (b.getAverageRate()*100 - a.getAverageRate()*100);
+				}
+				return groupComp;
+
+			}
+		});
+
+		// Table
+		TableBuilder table = new TableBuilder();
+		table.addTitle("Phase " + boon.getName() + " - " + bossData.getName());
+
+		// Header
+		String[] header = new String[fight_intervals.size() + 4];
+		header[0] = "Name";
+		header[1] = "Profession";
+		header[2] = "Subgroup";
+		for (int i = 3; i < fight_intervals.size() + 3; i++) {
+			header[i] = "Phase " + String.valueOf(i - 2);
+		}
+		header[header.length - 1] = "Average";
+		table.addRow(header);
+
+		// Body
+		for (int i = 0; i < holder.size(); i++) {
+			CompareBoonHolder h = holder.get(i);
+			Player p = h.getPlayer();
+			table.addRow(
+					Utility.concatStringArray(new String[] { p.getCharacter(), p.getProf() , p.getGroup()}, h.getRate()));
+		}
+
+		// Footer
+		String[] durations = new String[fight_intervals.size() + 4];
+		double total_time = 0.0;
+		durations[0] = "-";
+		durations[1] = "-";
+		durations[2] = "-";
+		for (int i = 3; i < fight_intervals.size() + 3; i++) {
+			Point p = fight_intervals.get(i - 3);
+			double time = (p.getY() - p.getX()) / 1000.0;
+			total_time += time;
+			durations[i] = String.format("%.2f", time);
+		}
+		durations[durations.length - 1] = String.format("%.2f", total_time);
+		table.addRow(durations);
+
+		String[] intervals = new String[fight_intervals.size() + 4];
+		intervals[0] = "-";
+		intervals[1] = "-";
+		intervals[2] = "-";
+		for (int i = 3; i < fight_intervals.size() + 3; i++) {
+			Point p = fight_intervals.get(i - 3);
+			intervals[i] = "(" + String.format("%.2f", p.getX() / 1000.0) + ", "
+					+ String.format("%.2f", p.getY() / 1000.0) + ")";
+		}
+		intervals[intervals.length - 1] = "-";
+		table.addRow(intervals);
+
+		return table.toString();
+
 	}
 
 	// Private Methods
@@ -643,14 +747,14 @@ public class Statistics {
 		return boon_intervals;
 	}
 
-	private String getBoonDuration(List<Point> boon_intervals) {
+	private double getBoonDuration(List<Point> boon_intervals) {
 
 		// Calculate average duration
 		double average_duration = 0;
 		for (Point p : boon_intervals) {
 			average_duration = average_duration + (p.getY() - p.getX());
 		}
-		return String.format("%.2f", (average_duration / (bossData.getLastAware() - bossData.getFirstAware())));
+		return average_duration / (bossData.getLastAware() - bossData.getFirstAware());
 	}
 
 	private String[] getBoonDuration(List<Point> boon_intervals, List<Point> fight_intervals) {
@@ -714,11 +818,11 @@ public class Statistics {
 		return boon_stacks;
 	}
 
-	private String getAverageStacks(List<Integer> boon_stacks) {
+	private double getAverageStacks(List<Integer> boon_stacks) {
 
 		// Calculate average stacks
 		double average_stacks = boon_stacks.stream().mapToInt(Integer::intValue).sum();
-		return String.format("%.2f", average_stacks / boon_stacks.size());
+		return average_stacks / boon_stacks.size();
 	}
 
 	private String[] getAverageStacks(List<Integer> boon_stacks, List<Point> fight_intervals) {

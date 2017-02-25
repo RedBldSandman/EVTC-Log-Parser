@@ -3,7 +3,7 @@ package enums;
 public enum MenuChoice {
 
 	// Constants
-	DUMP_EVTC(0, false),
+	QUIT(0, false),
 	FINAL_DPS(1, true),
 	PHASE_DPS(2, true),
 	DMG_DIST(3, true),
@@ -11,8 +11,9 @@ public enum MenuChoice {
 	MISC_STATS(5, true),
 	FINAL_BOONS(6, true),
 	PHASE_BOONS(7, true),
-	DUMP_TABLES(8, false),
-	QUIT(9, false);
+	COMPARE_BOON(8, true),
+	DUMP_TABLES(9, false),
+	DUMP_EVTC(10, false);
 
 	// Fields
 	private int ID;
