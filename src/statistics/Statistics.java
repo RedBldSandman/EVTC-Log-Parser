@@ -5,6 +5,8 @@ import java.awt.Point;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -736,11 +738,19 @@ public class Statistics {
 		return phase_stacks;
 	}
 
-	// resorts the player list by subgroup - checks for "N/A" for logs before
-	// subgroups were added
+	// resorts the player list by subgroup then by character name
+	// Checks for "N/A" for logs before subgroups were added
 	private void sortPlayerList() {
-		playerList.sort((a, b) -> Integer.parseInt(a.getGroup() != "N/A" ? a.getGroup() : "0")
-				- Integer.parseInt(b.getGroup() != "N/A" ? b.getGroup() : "0"));
+		Collections.sort(playerList, new Comparator<Player>() {
+			@Override
+			public int compare(Player a, Player b) {
+				int groupComp = Integer.parseInt(a.getGroup()!="N/A"?a.getGroup():"0") - Integer.parseInt(b.getGroup()!="N/A"?b.getGroup():"0");
+				if (groupComp == 0) {
+					return a.getCharacter().compareTo(b.getCharacter());
+				}
+				return groupComp;
+			}
+		});
 	}
 
 }
