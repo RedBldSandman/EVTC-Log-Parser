@@ -36,6 +36,7 @@ import utility.PhaseDpsHolder;
 import utility.TableBuilder;
 import utility.Utility;
 
+
 public class Statistics {
 
 	// Fields
@@ -496,9 +497,9 @@ public class Statistics {
 			int t_prev = timeStart;
 			for (CombatItem c : combatList) {
                 t_curr = c.getTime();
-                if (c.getSrcAgent() == bossData.getAgent()) {
+                if (c.getSrcInstid() == bossData.getInstid()) {
                     // Start of split phase
-                    if (c.getSkillID() == indicator.getID() && c.getDstAgent() == bossData.getAgent()) {
+                    if (c.getSkillID() == indicator.getID() && c.getDstInstid() == bossData.getInstid()) {
                         fight_intervals.add(new Point(t_prev, t_curr - combatStart));
                         // End of split phase
                     } else if (c.getSkillID() == indicator.getID()) {
@@ -513,8 +514,23 @@ public class Statistics {
 			i_count = 3;
 			t_invuln = 25000;
 		} else if (bossData.getName().equals("Xera")) {
-			i_count = 1;
-			t_invuln = 60000;
+			int t_curr = 0;
+			int t_prev = timeStart;
+			for (CombatItem c : combatList) {
+				t_curr = c.getTime();
+				if (c.getSrcInstid() == bossData.getInstid()) {
+					// Start of bloodstone fragment phase
+					if (c.getSkillID() == BossIndicator.XERA_PHASE.getID() && c.getDstInstid() == bossData.getInstid()) {
+						fight_intervals.add(new Point(t_prev, t_curr - combatStart));
+						// Xera first and second spawn
+					} else if (c.getSkillID() == BossIndicator.XERA_SPAWN.getID() && c.getDstInstid() == bossData.getInstid()) {
+						t_prev = t_curr - combatStart;
+					}
+				}
+			}
+			// Add last burn phase
+			fight_intervals.add(new Point(t_prev, bossData.getLastAware() - combatStart));
+			return fight_intervals;
 		} else if (bossData.getName().equals("Slothasor")) {
 			i_count = 5;
 			t_invuln = 7000;
