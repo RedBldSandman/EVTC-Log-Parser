@@ -24,6 +24,7 @@ import data.CombatData;
 import data.CombatItem;
 import data.SkillData;
 import enums.Boon;
+import enums.BossIndicator;
 import enums.CustomSkill;
 import enums.Result;
 import enums.StateChange;
@@ -489,12 +490,25 @@ public class Statistics {
 		int i_count;
 		int t_invuln;
 
-		if (bossData.getName().equals("Vale Guardian")) {
-			i_count = 2;
-			t_invuln = 20000;
-		} else if (bossData.getName().equals("Gorseval the Multifarious")) {
-			i_count = 2;
-			t_invuln = 30000;
+		if (bossData.getName().equals("Vale Guardian") || bossData.getName().equals("Gorseval the Multifarious")) {
+			BossIndicator indicator = BossIndicator.getEnum(bossData.getName());
+		    int t_curr = 0;
+			int t_prev = timeStart;
+			for (CombatItem c : combatList) {
+                t_curr = c.getTime();
+                if (c.getSrcAgent() == bossData.getAgent()) {
+                    // Start of split phase
+                    if (c.getSkillID() == indicator.getID() && c.getDstAgent() == bossData.getAgent()) {
+                        fight_intervals.add(new Point(t_prev, t_curr - combatStart));
+                        // End of split phase
+                    } else if (c.getSkillID() == indicator.getID()) {
+                        t_prev = t_curr - combatStart;
+                    }
+                }
+            }
+            // Add last burn phase
+            fight_intervals.add(new Point(t_prev, bossData.getLastAware() - combatStart));
+            return fight_intervals;
 		} else if (bossData.getName().equals("Sabetha the Saboteur")) {
 			i_count = 3;
 			t_invuln = 25000;
@@ -517,26 +531,24 @@ public class Statistics {
 			for (CombatItem c : combatList) {
 				t_curr = c.getTime();
 				if (c.getSrcAgent() == bossData.getAgent()) {
-					// Start of invulnerability (757 is invulnerability skill
-					// id)
-					if (c.getSkillID() == 757 && c.getDstAgent() == bossData.getAgent()) {
+					// Start of invulnerability
+					if (c.getSkillID() == BossIndicator.INVULNERABILITY_KC.getID() && c.getDstAgent() == bossData.getAgent()) {
 						if (first_phase_flag) {
 							fight_intervals.add(new Point(t_prev, t_curr - combatStart));
 							first_phase_flag = false;
 						}
 						// End of invulnerability (DstAgent is not set)
-					} else if (c.getSkillID() == 757) {
+					} else if (c.getSkillID() == BossIndicator.INVULNERABILITY_KC.getID()) {
 						if (!same_phase_flag) {
 							t_prev = t_curr - combatStart;
 						}
 						same_phase_flag = true;
-						// Start of red/white orb phase (35025 is Xera's Boon
-						// skill id)
-					} else if (c.getSkillID() == 35025 && c.getDstAgent() == bossData.getAgent()) {
+						// Start of red/white orb phase
+					} else if (c.getSkillID() == BossIndicator.XERAS_BOON.getID() && c.getDstAgent() == bossData.getAgent()) {
 						fight_intervals.add(new Point(t_prev, t_curr - combatStart));
 						same_phase_flag = false;
 						// End of red/white orb phase
-					} else if (c.getSkillID() == 35025) {
+					} else if (c.getSkillID() == BossIndicator.XERAS_BOON.getID()) {
 						t_prev = t_curr - combatStart;
 					}
 				}
